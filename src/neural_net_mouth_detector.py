@@ -1,5 +1,6 @@
 import os
 
+import keras
 from PIL import Image
 import tensorflow as tf
 from keras.models import Sequential
@@ -9,15 +10,8 @@ import numpy as np
 import csv
 
 
-def get_dataset():
-    y = []
-    f = open('../faces_mouth_open.csv', 'r')
-    with f:
-        reader = csv.reader(f)
-        for row in reader:
-            y.append(row)  # TODO: does this need to be row[0]?
-
-    return y
+# extract mouth pixels from image
+from tensorflow.python.keras.models import load_model
 
 
 def get_mouth_pixels(image):
@@ -72,6 +66,7 @@ def get_data(labels, labels_camera):
                     mouth_pixels.append(labels[i][0])
                     writer.writerow(mouth_pixels)
 
+
         for i in range(len(labels_camera)):
             file_name = files_camera[i]
             if file_name.endswith(".jpg"):
@@ -83,18 +78,21 @@ def get_data(labels, labels_camera):
                     writer.writerow(mouth_pixels)
 
 
-def get_camera_dataset():
+#
+def get_labels(get_camera):
     y = []
-    f = open('../camera_mouth_labels.csv', 'r')
+    if get_camera:
+        f = open('../camera_mouth_labels.csv', 'r')
+    else:
+        f = open('../faces_mouth_open.csv', 'r')
     with f:
         reader = csv.reader(f)
         for row in reader:
-            row_data = []
-            for data in row:
-                row_data.append(data)  # TODO: does this need to be row[0]?
-            y.append(row_data)
+            y.append(row)
 
     return y
+
+
 
 
 def get_labelled_data():
@@ -105,7 +103,7 @@ def get_labelled_data():
         for row in reader:
             row_data = []
             for data in row:
-                row_data.append(data)  # TODO: does this need to be row[0]?
+                row_data.append(data)
             y.append(row_data)
 
     return y
@@ -115,7 +113,7 @@ def define_model():
     new_model = Sequential()
     # new_model.add(Dense(128, input_dim=255
     #                     , activation='relu'))
-    new_model.add(Conv1D(filters=64, kernel_size=3, activation='relu', input_shape=(256, 1)))
+    new_model.add(Conv1D(filters=64, kernel_size=3, activation='relu', input_shape=(255, 1)))
     new_model.add(Flatten())
     # new_model.add(Dropout(0.1))
     new_model.add(Dense(64, activation='relu'))
@@ -127,35 +125,61 @@ def define_model():
 
 
 def train_model(x, y, model_inp):
-    model_inp.fit(x, y, epochs=650, batch_size=64, validation_split=0.2, verbose=2)
+    model_inp.fit(x, y, epochs=50, batch_size=64, validation_split=0.2, verbose=2)
     _, accuracy = model_inp.evaluate(x, y)
     print("Accuracy: %.2f" % (accuracy * 100))
 
 
-# X_1 = get_dataset()
-# X_2 = get_camera_dataset()
-# get_data(X_1, X_2)
+def get_model_data():
+    xy = get_labelled_data()
+    x = []
+    Y = []
+
+    for row in xy:
+        x.append(row[:-1])
+        Y.append([row[-1]])
+
+    # all_x = Input(shape=(490,256))
+    x = np.array(x).reshape((-1, 255, 1))
+    x = x.astype(np.float)
+    x = tf.convert_to_tensor(x)
+    print(x.shape)
+    Y = np.array(Y).reshape((-1, 1, 1))
+    Y = Y.astype(np.float)
+    Y = tf.convert_to_tensor(Y)
+    print(Y.shape)
+    return x, Y
 
 
-xy = get_labelled_data()
-all_x = []
-all_y = []
+def train_and_save_model(x, Y):
+    model = define_model()
+    train_model(x, Y, model)
+    model.save('../utk_model.h5')
 
-for row in xy:
-    all_x.append(row[:-1])
-    all_y.append([row[-1]])
 
-# all_x = Input(shape=(490,256))
-all_x = np.array(all_x).reshape((-1, 1, 255))
-all_x = all_x.astype(np.float)
-all_x = tf.convert_to_tensor(all_x)
-print(all_x.shape)
-all_y = np.array(all_y).reshape((-1, 1, 1))
-all_y = all_y.astype(np.float)
-all_y = tf.convert_to_tensor(all_y)
-print(all_y.shape)
+def get_data():
+    y_1 = get_labels(get_camera=False)
+    y_2 = get_labels(get_camera=True)
+    write_mouth_data_to_csv(y_1, y_2)
 
-model = define_model()
-train_model(all_x, all_y, model)
-model.save('../utk_model')
 
+# def predict(inp):
+#     return model.predict(inp)
+
+
+# y_1 = get_labels(False)
+# y_2 = get_labels(True)
+# write_mouth_data_to_csv(y_1, y_2)
+#
+get_x, get_Y = get_model_data()
+train_and_save_model(get_x, get_Y)
+
+# model = load_model("../utk_model.h5")
+
+# im = Image.open("../camera_mouth_open_closed/WIN_20200710_12_13_15_Pro.jpg")
+# mouth_pixels = get_mouth_pixels(im)
+# pixels = np.array(mouth_pixels).reshape((1, 255, 1))
+# pixels = pixels.astype(np.float)
+# pixels = tf.convert_to_tensor(pixels)
+# pred = predict(pixels)
+# print(pred)
