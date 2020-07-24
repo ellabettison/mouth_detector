@@ -46,10 +46,12 @@ while True:
     if len(last_five_frames) > 5:
         last_five_frames = np.delete(last_five_frames, 0, axis=0)
         play = predict(last_five_frames.reshape((1, 5, 256)))
+        # print(play)
         if play > 0.5:
-            suppression_delay = 30
+            suppression_delay = 10
         if suppression_delay > 0:
             frame = cv.rectangle(frame, (0, 0), (50, 50), (255, 0, 0), 5)
-    cv.imshow("frmae", frame)
+        suppression_delay -= 1
+    cv.imshow("frame", frame)
     if cv.waitKey(10) == 27:
         break

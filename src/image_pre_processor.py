@@ -147,4 +147,4 @@ if not face_cascade.load(cv.samples.findFile(face_cascade_name)):
     exit(0)
 
 # test_frames('../meeting_vids_done/call-2.mp4')
-test_accuracy()
+# test_accuracy()
